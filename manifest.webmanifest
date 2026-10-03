@@ -1,0 +1,9 @@
+{
+  "name": "EuroDrive 3D",
+  "short_name": "EuroDrive",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#070b10",
+  "theme_color": "#070b10",
+  "description": "Realdatenbasierter 3D-Fahrsimulator-Prototyp"
+}

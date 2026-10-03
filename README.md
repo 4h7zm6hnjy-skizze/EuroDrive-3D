@@ -1,22 +1,27 @@
-# EuroDrive 3D v0.3 – Real Start Meinerzhagen
+# EuroDrive 3D v1.0
 
-Diese Version startet an **Löher Weg 2A, 58540 Meinerzhagen** und fährt zum **Kölner Dom**.
+Browser-Prototyp mit realdatenbasierter Geografie und HUD im Stil der gewünschten Fahransicht.
 
-## Was in v0.3 real ist
-- Start- und Zieladresse werden beim Laden live über OpenStreetMap/Nominatim aufgelöst.
-- Route wird über OSRM auf tatsächlich befahrbaren OSM-Straßen berechnet.
-- Karten- und Straßenlage stammt aus OpenStreetMap/OpenFreeMap.
-- Gelände wird über Mapterhorn als 3D-Höhenmodell geladen.
-- Gebäude werden, soweit im Kartenstil verfügbar, aus echten Kartengeometrien extrudiert.
-- Tankstellen werden entlang der Route aus OpenStreetMap/Overpass geladen.
+## Enthalten
+- Start: Löher Weg 2A, 58540 Meinerzhagen
+- frei wählbares Ziel in Europa
+- reale Straßenroute über OSRM
+- OpenStreetMap/OpenFreeMap-Kartendaten
+- echtes 3D-Terrain über Mapterhorn
+- 3D-Gebäude, soweit die Kartendaten Gebäudeinformationen enthalten
+- Kamera direkt hinter dem Fahrzeug
+- Navi oben links
+- Minikarte unten links
+- Rundtacho unten rechts
+- Tank, Reichweite, Tankstellen und automatisches Tanken
+- Familienwagen, SUV, Sportwagen, Supersportwagen
+- Touch-Steuerung und optionale Neigungssteuerung
+- simulierter Verkehr
 
-## Absichtlich keine Fantasie-Ersatzdaten
-Wenn Startadresse, Zieladresse oder Route nicht geladen werden können, zeigt die App einen Fehler. Sie setzt **keine erfundene Ersatzroute** ein.
-
-## Noch nicht 1:1 fotorealistisch
-Fassaden, Vegetation, Straßenmöblierung und einzelne Objekte entsprechen noch nicht vollständig der realen Optik. Positionen und Geografie basieren auf offenen Geodaten.
+## Wichtig
+Die Geografie ist realdatenbasiert. Fassaden, Vegetation, Straßenmöblierung und Fahrzeugmodell sind dort spielgrafisch angenähert, wo offene Geodaten keine fotorealistischen 1:1-Modelle bereitstellen.
 
 ## Start
-Die Datei `index.html` über GitHub Pages oder einen lokalen Webserver öffnen. Direkter Datei-Aufruf (`file://`) kann externe Kartendienste blockieren.
+Die Dateien auf einen normalen Webserver oder GitHub Pages hochladen. Wegen externer Karten-, Routing- und Geodatendienste sollte die App über https:// laufen und nicht nur als lokale file://-Datei geöffnet werden.
 
-Kartendaten © OpenStreetMap-Mitwirkende. Karte: OpenFreeMap. Gelände: Mapterhorn. Routing: OSRM-Demo-Server.
+Kartendaten © OpenStreetMap-Mitwirkende. Karte: OpenFreeMap. Terrain: © Mapterhorn. Routing: öffentlicher OSRM-Demo-Server.
