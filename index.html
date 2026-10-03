@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+  <meta name="theme-color" content="#0b1118" />
+  <title>EuroDrive 3D v0.3 – Meinerzhagen Real Start</title>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.11.2/dist/maplibre-gl.css" />
+  <style>
+    :root{color-scheme:dark;--bg:#0a0f15;--panel:rgba(8,13,20,.86);--line:rgba(255,255,255,.15);--txt:#f6f8fb;--muted:#aeb9c6;--accent:#3c91ff;--warn:#ffca43;--danger:#ff5d5d}
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    html,body{margin:0;min-height:100%;background:var(--bg);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--txt);overflow:hidden}
+    #app{height:100vh;display:grid;grid-template-rows:minmax(0,1fr) auto;background:#111}
+    #mapWrap{position:relative;min-height:0;overflow:hidden}
+    #map{position:absolute;inset:0}
+    .shade{position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(2,6,10,.2),transparent 22%,transparent 68%,rgba(2,6,10,.46));z-index:2}
+    .hud{position:absolute;z-index:6;background:var(--panel);backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.25)}
+    #navHud{left:max(10px,env(safe-area-inset-left));top:max(10px,env(safe-area-inset-top));padding:10px 12px;max-width:min(52vw,360px)}
+    #speedHud{right:max(10px,env(safe-area-inset-right));top:max(10px,env(safe-area-inset-top));padding:10px 12px;min-width:150px;text-align:right}
+    #statusHud{left:max(10px,env(safe-area-inset-left));bottom:12px;padding:9px 11px;max-width:58vw}
+    .kicker{font-size:10px;letter-spacing:.12em;color:#9ca9b8;font-weight:700}
+    .speed{font-size:30px;line-height:1;font-weight:900;font-variant-numeric:tabular-nums}
+    .small{font-size:12px;color:#c0c9d3;line-height:1.4}
+    .bar{height:7px;border-radius:99px;background:rgba(255,255,255,.14);overflow:hidden;margin-top:6px}
+    .bar span{display:block;height:100%;background:#f4f6f8;width:100%;transition:width .2s}
+    #fuelNearby{display:none;color:#ffe287;margin-top:4px}
+    #fuelNearby.on{display:block}
+    #routeBadge{display:inline-flex;gap:6px;align-items:center;margin-top:5px;padding:4px 7px;border-radius:8px;background:rgba(60,145,255,.15);border:1px solid rgba(60,145,255,.28);font-size:11px}
+    #car{position:absolute;z-index:7;left:50%;bottom:24%;width:32px;height:58px;transform:translateX(-50%);filter:drop-shadow(0 7px 6px rgba(0,0,0,.5));transition:left .08s linear}
+    #car:before{content:"";position:absolute;left:4px;right:4px;top:6px;bottom:5px;border-radius:11px 11px 9px 9px;background:linear-gradient(90deg,#1c4f88,#4f94dd 52%,#173e6a);border:1px solid rgba(255,255,255,.28)}
+    #car:after{content:"";position:absolute;left:8px;right:8px;top:12px;height:17px;border-radius:7px 7px 3px 3px;background:linear-gradient(#7fa3b4,#24353d);border:1px solid rgba(255,255,255,.18)}
+    .tailL,.tailR{position:absolute;bottom:8px;width:6px;height:4px;background:#ff3f3f;border-radius:2px;z-index:2}.tailL{left:7px}.tailR{right:7px}
+    #centerLine{position:absolute;z-index:4;left:50%;bottom:18%;width:2px;height:70px;background:linear-gradient(transparent,rgba(255,255,255,.35));transform:translateX(-50%);pointer-events:none}
+    #loading{position:absolute;z-index:20;inset:0;display:grid;place-items:center;background:#0b1118;color:white;padding:24px;text-align:center}
+    #loading.hide{display:none}
+    .spinner{width:34px;height:34px;border:3px solid rgba(255,255,255,.16);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}@keyframes spin{to{transform:rotate(360deg)}}
+    #errorBox{display:none;position:absolute;z-index:21;left:50%;top:50%;transform:translate(-50%,-50%);width:min(90%,520px);background:#151c25;border:1px solid rgba(255,93,93,.35);border-radius:16px;padding:16px;color:#fff}#errorBox.on{display:block}
+    .controls{display:grid;grid-template-columns:1.2fr 1.2fr 1.5fr 1.5fr;gap:8px;padding:9px max(9px,env(safe-area-inset-right)) calc(9px + env(safe-area-inset-bottom)) max(9px,env(safe-area-inset-left));background:#0b1017;border-top:1px solid rgba(255,255,255,.1)}
+    button,select{font:inherit;color:inherit}
+    .btn{min-height:58px;border:1px solid rgba(255,255,255,.15);border-radius:13px;background:#18212c;color:#f5f7fa;font-weight:800;touch-action:none;padding:8px}.btn:active,.btn.active{background:#26384b;transform:translateY(1px)}.btn.gas{background:#184f33;border-color:#2d7b53}.btn.brake{background:#52252a;border-color:#814048}
+    #menuBtn{position:absolute;z-index:8;right:max(10px,env(safe-area-inset-right));bottom:12px;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:white;padding:10px 12px;font-weight:800}
+    #panel{position:absolute;z-index:15;right:10px;bottom:66px;width:min(360px,calc(100% - 20px));max-height:72%;overflow:auto;background:rgba(9,14,21,.96);border:1px solid var(--line);border-radius:16px;padding:13px;display:none;box-shadow:0 18px 50px rgba(0,0,0,.4)}#panel.on{display:block}
+    .field{margin-bottom:12px}.field label{display:block;font-size:11px;color:#aeb9c6;font-weight:700;margin-bottom:5px;text-transform:uppercase;letter-spacing:.08em}.field select{width:100%;min-height:44px;border:1px solid var(--line);background:#111923;border-radius:10px;padding:8px 10px}
+    .row{display:flex;gap:8px}.row>*{flex:1}
+    .miniBtn{min-height:42px;border:1px solid var(--line);border-radius:10px;background:#17212b;font-weight:700;padding:8px}
+    .miniBtn.primary{background:#184f8e}.miniBtn.warn{background:#675322}.note{font-size:11px;color:#9eabba;line-height:1.45}.credits{font-size:10px;color:#8e9aa8;margin-top:10px;line-height:1.45}.credits a{color:#a9cfff}
+    #tiltState.good{color:#9ee2af}#tiltState.bad{color:#ffcd85}
+    .maplibregl-ctrl-bottom-left,.maplibregl-ctrl-bottom-right{z-index:5}
+    @media(max-width:650px){#navHud{max-width:58vw}#speedHud{min-width:126px}.speed{font-size:26px}.controls{grid-template-columns:1fr 1fr 1.3fr 1.3fr}.btn{min-height:64px;font-size:14px}#statusHud{max-width:64vw}.maplibregl-ctrl-attrib{font-size:8px}}
+  </style>
+</head>
+<body>
+<div id="app">
+  <div id="mapWrap">
+    <div id="map"></div><div class="shade"></div><div id="centerLine"></div>
+    <div id="car" aria-label="Fahrzeug"><span class="tailL"></span><span class="tailR"></span></div>
+
+    <div id="navHud" class="hud">
+      <div class="kicker">ECHTES NAVI · OSM</div>
+      <div id="nextInstruction" style="font-weight:850;margin-top:2px">Route wird geladen …</div>
+      <div id="remainText" class="small">Löher Weg 2A → Köln</div>
+      <div id="routeBadge">REAL ROUTE</div>
+    </div>
+
+    <div id="speedHud" class="hud">
+      <div><span id="speed" class="speed">0</span> <span class="small">km/h</span></div>
+      <div class="small"><span id="gear">N</span> · Tank <span id="fuelPct">100</span>%</div>
+      <div class="bar"><span id="fuelBar"></span></div>
+      <div id="rangeText" class="small">Reichweite —</div>
+    </div>
+
+    <div id="statusHud" class="hud">
+      <div id="carLabel" style="font-weight:800">Familienwagen</div>
+      <div id="tripText" class="small">0,0 km gefahren</div>
+      <div id="fuelNearby" class="small">⛽ Tankstelle in der Nähe – unter 5 km/h anhalten</div>
+    </div>
+
+    <button id="menuBtn" type="button">☰ Menü</button>
+    <div id="panel">
+      <div class="field"><label for="vehicle">Fahrzeug</label><select id="vehicle"><option value="family">Familienwagen · 150 PS</option><option value="suv">SUV · 230 PS</option><option value="sport">Sportwagen · 480 PS</option><option value="super">Supersportwagen · 780 PS</option></select><div id="vehicleStats" class="note" style="margin-top:5px"></div></div>
+      <div class="field"><label>Route</label><div class="note">Start: Löher Weg 2A, 58540 Meinerzhagen · Ziel: Kölner Dom. Beide Punkte werden beim Start aus OpenStreetMap-Daten aufgelöst; es gibt keine künstliche Ersatzposition.</div><div id="resolvedStart" class="note" style="margin-top:6px">Startadresse wird geprüft …</div></div>
+      <div class="row"><button id="restartBtn" class="miniBtn primary" type="button">Route neu starten</button><button id="pauseBtn" class="miniBtn" type="button">Pause</button></div>
+      <div class="field" style="margin-top:12px"><label>Handy-Neigungssteuerung</label><button id="tiltBtn" class="miniBtn warn" type="button" style="width:100%">Neigungssteuerung aktivieren</button><div id="tiltState" class="note" style="margin-top:6px">Aus. Links/Rechts-Tasten funktionieren immer.</div></div>
+      <div class="field"><label>Ansicht</label><div class="row"><button id="driveViewBtn" class="miniBtn" type="button">Fahransicht</button><button id="overviewBtn" class="miniBtn" type="button">Route zeigen</button></div></div>
+      <div class="note">Hinweis: Diese Version nutzt reale Straßen, reales Gelände und reale OSM-Kartenobjekte. Gebäude werden, soweit die Kartendaten Höhen enthalten, zusätzlich in 3D extrudiert. Fotorealistische Fassaden und einzelne Bäume sind nicht 1:1 abgebildet.</div>
+      <div class="credits">Kartendaten: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap-Mitwirkende</a> · Karte: <a href="https://openfreemap.org" target="_blank" rel="noreferrer">OpenFreeMap</a> · Gelände: <a href="https://mapterhorn.com/attribution" target="_blank" rel="noreferrer">© Mapterhorn</a>. Routing: OSRM-Demo-Server; für eine veröffentlichte Vollversion sollte ein eigener Routingserver verwendet werden.</div>
+    </div>
+
+    <div id="loading"><div><div class="spinner"></div><strong>Reale Route und 3D-Landschaft werden geladen</strong><div id="loadingText" class="small" style="margin-top:6px">OpenStreetMap-Daten werden vorbereitet …</div></div></div>
+    <div id="errorBox"><strong>Die echten Kartendaten konnten nicht geladen werden.</strong><div id="errorText" class="small" style="margin-top:6px"></div><button id="retryBtn" class="miniBtn primary" type="button" style="margin-top:12px;width:100%">Erneut versuchen</button></div>
+  </div>
+
+  <div class="controls">
+    <button id="leftBtn" class="btn" type="button">◀ Links</button>
+    <button id="rightBtn" class="btn" type="button">Rechts ▶</button>
+    <button id="brakeBtn" class="btn brake" type="button">▼ Bremse / R</button>
+    <button id="gasBtn" class="btn gas" type="button">▲ GAS</button>
+  </div>
+</div>
+
+<script type="module">
+import * as maplibregl from 'https://unpkg.com/maplibre-gl@6.11.2/dist/maplibre-gl.mjs';
+
+const START_QUERY = 'Löher Weg 2A, 58540 Meinerzhagen, Deutschland';
+const DEST_QUERY = 'Kölner Dom, Domkloster 4, 50667 Köln, Deutschland';
+let START = null;
+let DEST = null;
+const els = Object.fromEntries([...document.querySelectorAll('[id]')].map(el => [el.id, el]));
+
+const vehicles = {
+  family:{name:'Familienwagen',max:210,acc:18,brake:38,tank:58,cons:7.6},
+  suv:{name:'SUV',max:235,acc:20,brake:40,tank:72,cons:9.4},
+  sport:{name:'Sportwagen',max:305,acc:28,brake:48,tank:68,cons:12.4},
+  super:{name:'Supersportwagen',max:350,acc:35,brake:54,tank:76,cons:15.1}
+};
+
+let vehicle=vehicles.family, speed=0, fuel=vehicle.tank, traveled=0, routeDistance=0, routeDuration=0;
+let routeCoords=[], cumulative=[], routeSteps=[], routeProgress=0, paused=false, driveMode=true;
+let steer=0, tiltSteer=0, tiltEnabled=false, lastTs=performance.now(), nearestFuel=null, refueling=false;
+let fuelStations=[];
+
+const map = new maplibregl.Map({
+  container:'map',
+  style:'https://tiles.openfreemap.org/styles/liberty',
+  center:[10.4515,51.1657],
+  zoom:5.4,
+  pitch:0,
+  bearing:0,
+  antialias:true,
+  maxPitch:85,
+  attributionControl:true
+});
+map.addControl(new maplibregl.NavigationControl({showCompass:true,showZoom:false}), 'bottom-right');
+
+function fmtKm(m){return (m/1000).toFixed(m>100000?0:1).replace('.',',')+' km'}
+function fmtTime(s){const h=Math.floor(s/3600),m=Math.round((s%3600)/60);return h?`${h} Std. ${m} Min.`:`${m} Min.`}
+function hav(a,b){const R=6371000, toRad=Math.PI/180;const p1=a[1]*toRad,p2=b[1]*toRad,dp=(b[1]-a[1])*toRad,dl=(b[0]-a[0])*toRad;const x=Math.sin(dp/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;return 2*R*Math.atan2(Math.sqrt(x),Math.sqrt(1-x))}
+function bearing(a,b){const r=Math.PI/180,p1=a[1]*r,p2=b[1]*r,dl=(b[0]-a[0])*r;const y=Math.sin(dl)*Math.cos(p2),x=Math.cos(p1)*Math.sin(p2)-Math.sin(p1)*Math.cos(p2)*Math.cos(dl);return (Math.atan2(y,x)*180/Math.PI+360)%360}
+function interpolate(a,b,t){return [a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t]}
+function locationAt(m){if(!routeCoords.length)return {coord:START||[10.4515,51.1657],bearing:0,index:0};m=Math.max(0,Math.min(routeDistance,m));let lo=0,hi=cumulative.length-1;while(lo<hi){const mid=Math.floor((lo+hi)/2);if(cumulative[mid]<m)lo=mid+1;else hi=mid}const i=Math.max(1,lo),prev=cumulative[i-1],seg=Math.max(1,cumulative[i]-prev),t=(m-prev)/seg;return {coord:interpolate(routeCoords[i-1],routeCoords[i],t),bearing:bearing(routeCoords[i-1],routeCoords[i]),index:i}}
+function routeBBox(){let w=Infinity,s=Infinity,e=-Infinity,n=-Infinity;for(const c of routeCoords){w=Math.min(w,c[0]);e=Math.max(e,c[0]);s=Math.min(s,c[1]);n=Math.max(n,c[1])}return [w,s,e,n]}
+
+async function geocodeExact(query,label){
+  const url='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=de&addressdetails=1&q='+encodeURIComponent(query);
+  const res=await fetch(url,{headers:{'Accept':'application/json','Accept-Language':'de'}});
+  if(!res.ok)throw new Error(`${label}: Adressdienst antwortet mit HTTP ${res.status}.`);
+  const data=await res.json();
+  if(!Array.isArray(data)||!data[0])throw new Error(`${label}: Adresse wurde in OpenStreetMap nicht eindeutig gefunden.`);
+  const lon=Number(data[0].lon),lat=Number(data[0].lat);
+  if(!Number.isFinite(lon)||!Number.isFinite(lat))throw new Error(`${label}: ungültige Koordinaten vom Adressdienst.`);
+  return {coord:[lon,lat],display:data[0].display_name||query,osmType:data[0].osm_type||'',osmId:data[0].osm_id||''};
+}
+
+async function resolveEndpoints(){
+  els.loadingText.textContent='Startadresse Löher Weg 2A wird in OpenStreetMap gesucht …';
+  const start=await geocodeExact(START_QUERY,'Start');
+  START=start.coord;
+  if(els.resolvedStart)els.resolvedStart.textContent='OSM-Start: '+start.display;
+  els.loadingText.textContent='Ziel Kölner Dom wird in OpenStreetMap gesucht …';
+  const dest=await geocodeExact(DEST_QUERY,'Ziel');
+  DEST=dest.coord;
+  return {start,dest};
+}
+
+async function loadRoute(){
+  els.loading.classList.remove('hide');els.errorBox.classList.remove('on');
+  try{
+    if(!START||!DEST)await resolveEndpoints();
+    els.loadingText.textContent='Reale Fahrroute wird berechnet …';
+    const url=`https://router.project-osrm.org/route/v1/driving/${START[0]},${START[1]};${DEST[0]},${DEST[1]}?overview=full&geometries=geojson&steps=true&annotations=false`;
+    const res=await fetch(url);if(!res.ok)throw new Error('Routing-Server antwortet mit HTTP '+res.status);
+    const data=await res.json();if(data.code!=='Ok'||!data.routes?.[0])throw new Error(data.message||'Keine reale Route gefunden.');
+    const r=data.routes[0];routeCoords=r.geometry.coordinates;routeDistance=r.distance;routeDuration=r.duration;routeSteps=r.legs.flatMap(l=>l.steps||[]);
+    cumulative=[0];for(let i=1;i<routeCoords.length;i++)cumulative[i]=cumulative[i-1]+hav(routeCoords[i-1],routeCoords[i]);
+    const factor=routeDistance/(cumulative.at(-1)||routeDistance);if(Math.abs(factor-1)>.01)cumulative=cumulative.map(v=>v*factor);
+    routeProgress=0;traveled=0;speed=0;fuel=vehicle.tank;
+    addRouteToMap();
+    addEndpointMarkers();
+    els.loadingText.textContent='Tankstellen und Geländedaten werden geladen …';
+    loadFuelStations().catch(()=>{});
+    updateHud();
+    setDriveView(true);
+    els.loading.classList.add('hide');
+  }catch(err){
+    els.loading.classList.add('hide');els.errorText.textContent=String(err.message||err)+' Es wird absichtlich keine künstliche Ersatzroute angezeigt.';els.errorBox.classList.add('on');
+  }
+}
+
+function addRouteToMap(){
+  const data={type:'Feature',geometry:{type:'LineString',coordinates:routeCoords}};
+  if(map.getSource('drive-route'))map.getSource('drive-route').setData(data); else {
+    map.addSource('drive-route',{type:'geojson',data});
+    map.addLayer({id:'drive-route-casing',type:'line',source:'drive-route',layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':'#13263e','line-width':10,'line-opacity':.78}});
+    map.addLayer({id:'drive-route-line',type:'line',source:'drive-route',layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':'#3c91ff','line-width':5}});
+  }
+}
+
+function addEndpointMarkers(){
+  if(!START||!DEST)return;
+  const data={type:'FeatureCollection',features:[
+    {type:'Feature',properties:{kind:'start',label:'Start · Löher Weg 2A'},geometry:{type:'Point',coordinates:START}},
+    {type:'Feature',properties:{kind:'dest',label:'Ziel · Kölner Dom'},geometry:{type:'Point',coordinates:DEST}}
+  ]};
+  if(map.getSource('route-endpoints'))map.getSource('route-endpoints').setData(data); else {
+    map.addSource('route-endpoints',{type:'geojson',data});
+    map.addLayer({id:'route-endpoints-circle',type:'circle',source:'route-endpoints',paint:{'circle-radius':['interpolate',['linear'],['zoom'],7,4,15,9],'circle-color':['match',['get','kind'],'start','#38d17a','#ffcf4c'],'circle-stroke-color':'#101820','circle-stroke-width':2}});
+    map.addLayer({id:'route-endpoints-label',type:'symbol',source:'route-endpoints',layout:{'text-field':['get','label'],'text-size':12,'text-offset':[0,1.4],'text-anchor':'top','text-allow-overlap':false},paint:{'text-color':'#ffffff','text-halo-color':'#101820','text-halo-width':2}});
+  }
+}
+
+function addTerrainAndBuildings(){
+  try{
+    if(!map.getSource('real-terrain'))map.addSource('real-terrain',{type:'raster-dem',url:'https://tiles.mapterhorn.com/tilejson.json',tileSize:512});
+    map.setTerrain({source:'real-terrain',exaggeration:1.05});
+  }catch(e){console.warn('Terrain nicht verfügbar',e)}
+  try{
+    const sources=map.getStyle().sources||{};
+    const vectorId=Object.keys(sources).find(k=>sources[k].type==='vector');
+    if(vectorId&&!map.getLayer('ed3d-buildings')){
+      const before=(map.getStyle().layers||[]).find(l=>l.type==='symbol')?.id;
+      map.addLayer({id:'ed3d-buildings',type:'fill-extrusion',source:vectorId,'source-layer':'building',minzoom:14,paint:{'fill-extrusion-color':'#b5b1aa','fill-extrusion-height':['coalesce',['to-number',['get','render_height'],0],['*',['to-number',['get','levels'],3],3],6],'fill-extrusion-base':['coalesce',['to-number',['get','render_min_height'],0],0],'fill-extrusion-opacity':.73}},before);
+    }
+  }catch(e){console.warn('3D-Gebäude nicht verfügbar',e)}
+}
+
+async function loadFuelStations(){
+  if(!routeCoords.length)return;
+  const [w,s,e,n]=routeBBox();const pad=.018;
+  const q=`[out:json][timeout:18];(node[\"amenity\"=\"fuel\"](${s-pad},${w-pad},${n+pad},${e+pad});way[\"amenity\"=\"fuel\"](${s-pad},${w-pad},${n+pad},${e+pad});relation[\"amenity\"=\"fuel\"](${s-pad},${w-pad},${n+pad},${e+pad}););out center tags 120;`;
+  const res=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},body:'data='+encodeURIComponent(q)});
+  if(!res.ok)throw new Error('Tankstellenabfrage fehlgeschlagen');const json=await res.json();
+  fuelStations=(json.elements||[]).map(x=>({coord:[x.lon??x.center?.lon,x.lat??x.center?.lat],name:x.tags?.name||x.tags?.brand||'Tankstelle'})).filter(x=>Number.isFinite(x.coord[0])&&Number.isFinite(x.coord[1]));
+  const fc={type:'FeatureCollection',features:fuelStations.map((x,i)=>({type:'Feature',properties:{name:x.name,i},geometry:{type:'Point',coordinates:x.coord}}))};
+  if(map.getSource('fuel-stations'))map.getSource('fuel-stations').setData(fc);else{
+    map.addSource('fuel-stations',{type:'geojson',data:fc});
+    map.addLayer({id:'fuel-stations',type:'circle',source:'fuel-stations',paint:{'circle-radius':['interpolate',['linear'],['zoom'],9,2,15,7],'circle-color':'#ffc83d','circle-stroke-color':'#332600','circle-stroke-width':2}});
+  }
+}
+
+function instructionText(){
+  let d=routeProgress;for(const st of routeSteps){if(d<=st.distance){const m=st.maneuver||{},name=st.name?` auf ${st.name}`:'';const mod={left:'links',right:'rechts','slight left':'leicht links','slight right':'leicht rechts',straight:'geradeaus','sharp left':'scharf links','sharp right':'scharf rechts','uturn':'wenden'}[m.modifier]||'';const type={turn:'Abbiegen',continue:'Weiter',merge:'Einfädeln','on ramp':'Auffahrt','off ramp':'Ausfahrt',roundabout:'Kreisverkehr',depart:'Start',arrive:'Ziel'}[m.type]||'Weiter';return `${type}${mod?' '+mod:''}${name}`;}d-=st.distance}
+  return routeProgress>=routeDistance-20?'Ziel erreicht':'Route folgen';
+}
+
+function nearestStation(coord){let best=null,dist=Infinity;for(const s of fuelStations){const d=hav(coord,s.coord);if(d<dist){dist=d;best=s}}return best?{...best,dist}:null}
+function updateHud(){
+  els.speed.textContent=Math.round(Math.abs(speed));els.gear.textContent=speed<-1?'R':speed>1?'D':'N';
+  const pct=Math.max(0,Math.min(100,Math.round(fuel/vehicle.tank*100)));els.fuelPct.textContent=pct;els.fuelBar.style.width=pct+'%';
+  els.rangeText.textContent=`Reichweite ca. ${Math.round(fuel/vehicle.cons*100)} km`;els.carLabel.textContent=vehicle.name;els.tripText.textContent=`${(traveled/1000).toFixed(1).replace('.',',')} km gefahren`;
+  const remain=Math.max(0,routeDistance-routeProgress);els.remainText.textContent=`Noch ${fmtKm(remain)} · ${fmtTime(routeDuration*(remain/Math.max(1,routeDistance)))}`;els.nextInstruction.textContent=instructionText();
+}
+
+function setDriveView(force=false){driveMode=true;const p=locationAt(routeProgress);map.jumpTo({center:p.coord,zoom:force?15.8:map.getZoom(),pitch:72,bearing:p.bearing});}
+function showOverview(){driveMode=false;if(routeCoords.length){const b=routeBBox();map.fitBounds([[b[0],b[1]],[b[2],b[3]]],{padding:55,duration:800,pitch:30});}}
+
+function bindHold(el,key){const on=e=>{e.preventDefault();el.classList.add('active');if(key==='left')steer=-1;if(key==='right')steer=1;if(key==='gas')controls.gas=true;if(key==='brake')controls.brake=true};const off=e=>{e.preventDefault();el.classList.remove('active');if((key==='left'&&steer<0)||(key==='right'&&steer>0))steer=0;if(key==='gas')controls.gas=false;if(key==='brake')controls.brake=false};['pointerdown'].forEach(x=>el.addEventListener(x,on));['pointerup','pointercancel','pointerleave'].forEach(x=>el.addEventListener(x,off))}
+const controls={gas:false,brake:false};bindHold(els.leftBtn,'left');bindHold(els.rightBtn,'right');bindHold(els.gasBtn,'gas');bindHold(els.brakeBtn,'brake');
+
+els.menuBtn.addEventListener('click',()=>els.panel.classList.toggle('on'));
+els.retryBtn.addEventListener('click',()=>{START=null;DEST=null;loadRoute()});
+els.restartBtn.addEventListener('click',()=>{routeProgress=0;traveled=0;speed=0;fuel=vehicle.tank;paused=false;els.pauseBtn.textContent='Pause';setDriveView(true);updateHud()});
+els.pauseBtn.addEventListener('click',()=>{paused=!paused;els.pauseBtn.textContent=paused?'Weiter':'Pause'});
+els.driveViewBtn.addEventListener('click',()=>setDriveView(true));els.overviewBtn.addEventListener('click',showOverview);
+els.vehicle.addEventListener('change',()=>{const oldPct=fuel/vehicle.tank;vehicle=vehicles[els.vehicle.value];fuel=vehicle.tank*oldPct;els.vehicleStats.textContent=`Vmax ${vehicle.max} km/h · Tank ${vehicle.tank} l · ${vehicle.cons.toFixed(1).replace('.',',')} l/100 km`;updateHud()});
+els.vehicle.dispatchEvent(new Event('change'));
+
+async function enableTilt(){
+  try{
+    if(typeof DeviceOrientationEvent==='undefined')throw new Error('Gerätesensor nicht verfügbar.');
+    if(typeof DeviceOrientationEvent.requestPermission==='function'){const r=await DeviceOrientationEvent.requestPermission();if(r!=='granted')throw new Error('Sensorfreigabe wurde nicht erteilt.');}
+    window.addEventListener('deviceorientation',e=>{if(!tiltEnabled)return;const g=Number(e.gamma)||0;tiltSteer=Math.max(-1,Math.min(1,g/28));},{passive:true});
+    tiltEnabled=true;els.tiltState.textContent='Aktiv. Handy seitlich neigen zum Lenken.';els.tiltState.className='note good';els.tiltBtn.textContent='Neigungssteuerung aktiv';
+  }catch(e){els.tiltState.textContent=String(e.message||e);els.tiltState.className='note bad'}
+}
+els.tiltBtn.addEventListener('click',enableTilt);
+
+document.addEventListener('keydown',e=>{if(e.key==='ArrowUp'||e.key==='w')controls.gas=true;if(e.key==='ArrowDown'||e.key==='s')controls.brake=true;if(e.key==='ArrowLeft'||e.key==='a')steer=-1;if(e.key==='ArrowRight'||e.key==='d')steer=1});
+document.addEventListener('keyup',e=>{if(e.key==='ArrowUp'||e.key==='w')controls.gas=false;if(e.key==='ArrowDown'||e.key==='s')controls.brake=false;if((e.key==='ArrowLeft'||e.key==='a')&&steer<0)steer=0;if((e.key==='ArrowRight'||e.key==='d')&&steer>0)steer=0});
+
+function loop(ts){
+  const dt=Math.min(.05,(ts-lastTs)/1000);lastTs=ts;
+  if(!paused&&routeCoords.length){
+    const steerNow=Math.abs(tiltSteer)>.08?tiltSteer:steer;
+    if(controls.gas&&fuel>0)speed+=vehicle.acc*dt;
+    else if(!controls.brake)speed*=Math.pow(.985,dt*60);
+    if(controls.brake){if(speed>1)speed-=vehicle.brake*dt;else speed-=12*dt}
+    speed=Math.max(-25,Math.min(vehicle.max,speed));
+    if(fuel<=0&&speed>0)speed*=Math.pow(.5,dt*60);
+
+    const move=(speed/3.6)*dt;
+    if(move>=0){routeProgress=Math.min(routeDistance,routeProgress+move);traveled+=Math.max(0,move)}else routeProgress=Math.max(0,routeProgress+move);
+    if(Math.abs(move)>.01)fuel=Math.max(0,fuel-(vehicle.cons/100000)*Math.abs(move));
+    const p=locationAt(routeProgress);
+    nearestFuel=nearestStation(p.coord);
+    const near=nearestFuel&&nearestFuel.dist<95;els.fuelNearby.classList.toggle('on',!!near);
+    if(near&&Math.abs(speed)<5&&fuel<vehicle.tank*.995){refueling=true;fuel=Math.min(vehicle.tank,fuel+vehicle.tank*.20*dt);speed*=.9}else refueling=false;
+    if(refueling)els.fuelNearby.textContent=`⛽ ${nearestFuel.name}: automatisches Tanken … ${Math.round(fuel/vehicle.tank*100)} %`;else if(near)els.fuelNearby.textContent=`⛽ ${nearestFuel.name} in ${Math.round(nearestFuel.dist)} m – unter 5 km/h anhalten`;
+
+    const lanePx=Math.max(-38,Math.min(38,steerNow*34));els.car.style.left=`calc(50% + ${lanePx}px)`;
+    if(driveMode){const br=p.bearing+steerNow*2.5;map.jumpTo({center:p.coord,bearing:br,pitch:72,zoom:15.8});}
+    if(routeProgress>=routeDistance-2){speed=0;els.nextInstruction.textContent='Köln erreicht';}
+    updateHud();
+  }
+  requestAnimationFrame(loop);
+}
+
+map.on('load',async()=>{addTerrainAndBuildings();await loadRoute();requestAnimationFrame(loop)});
+map.on('error',e=>console.warn('Kartenfehler',e?.error||e));
+</script>
+</body>
+</html>
